@@ -27,16 +27,6 @@
 
 (defparameter *config* -1)
 
-(defun get-configx (which)
-  (unless *config*
-	(setf *config*
-		  (let ((cf "hn-dupe-config.lsp"))
-			(if (probe-file cf)
-				(with-open-file (fi cf)
-				  (read fi))
-				nil))))
-  (cdr (assoc which *config*)))
-
 (defun get-config0 (dir fn ty property &key (debug nil) )
   "look in parent, recursiveley. If a mounted /Volume on mac os-x, it won't go to home directory. "
   (if debug
