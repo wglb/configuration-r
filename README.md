@@ -26,6 +26,18 @@ is encountered.
 Configuration files are s-expressions, a list of cons elements whose `car` is the parameter name
 and the `cdr` is the value.
 
+### get-config
+
+```common-lisp
+getconfig (config-file-name property config-file-directory debug)
+```
+
+If debug is not nil, traces of the search.
+
+### Required files
+
+`xlog` is required. It can be found at [xlog](https://github.com/wglb/xlog/tree/master).
+
 
 
 
