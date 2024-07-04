@@ -64,13 +64,26 @@
 		 (fn (pathname-name filename))
 		 (ty (pathname-type filename)))
 	(if debug
-		(xlogntf "gc: fn ~s prop ~s dir ~s" filename property dir))
+		(xlogntf "gc: fn ~s prop ~s dir ~s ddir ~s" filename property dir ddir))
 	
 	(handler-case
 		(get-config0 ddir fn ty property :debug debug)
 	  (error (e)
-		(break "handler-case get-config filename ~a property ~s dir ~s fn ~s ty ~s" filename property ddir fn ty)
+		(break "handler-case get-config filename ~a~% property ~s dir ~s ddir ~s fn ~s ty ~s" filename property dir ddir fn ty)
 		(xlogntf "get-config: error ~e in getting ~a from ~a" e property filename)))))
+
+(defun get-config1 (filename property &key (debug nil))
+  (let ((dir (pathname-directory 
+			  (make-pathname 
+			   :name 
+			   (pathname-name filename)
+			   :directory (append 
+						   (pathname-directory (merge-pathnames *default-pathname-defaults* (directory-namestring filename)))
+						   (list `,(directory-namestring filename)))
+			   :type (pathname-type filename))))
+		(fn (pathname-name filename))
+		(ty (pathname-type filename)))
+	(get-config0 dir fn ty property :debug debug)))
 
 
 
