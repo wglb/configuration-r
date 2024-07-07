@@ -84,7 +84,3 @@
 		(fn (pathname-name filename))
 		(ty (pathname-type filename)))
 	(get-config0 dir fn ty property :debug debug)))
-
-
-
-
