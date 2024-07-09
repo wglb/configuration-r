@@ -4,7 +4,7 @@
   :description "Describe configuration-r here"
   :author "Your Name <your.name@example.com>"
   :license  "Specify license here"
-  :version "0.1.1"
+  :version "0.2.1"
   :serial t
   :depends-on (#:xlog)
   :components ((:file "configuration-r-pkg")
