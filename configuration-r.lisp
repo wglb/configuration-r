@@ -73,7 +73,7 @@
 		(xlogntf "get-config: error ~e in getting ~a from ~a" e property filename)))))
 
 (defun get-config1 (filename property &key (debug nil))
-  (let ((dir (pathname-directory 
+  (let* ((dir (pathname-directory 
 			  (make-pathname 
 			   :name 
 			   (pathname-name filename)
@@ -82,5 +82,9 @@
 						   (list `,(directory-namestring filename)))
 			   :type (pathname-type filename))))
 		(fn (pathname-name filename))
-		(ty (pathname-type filename)))
-	(get-config0 dir fn ty property :debug debug)))
+		(ty (pathname-type filename))
+		(ans (get-config0 dir fn ty property :debug debug)))
+	(if debug
+		(xlogntf "gc1: dir ~s fn ~s property ~s val ~s" filename fn property ans))
+	ans))
+
