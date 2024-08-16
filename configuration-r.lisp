@@ -36,7 +36,7 @@
 			  (*print-pretty* nil)
 			  (dfnx (pathname-directory fnx))
 			  (pf (probe-file fnx)))
-		(if debug (xlogntf "gc0: pf is ~s fnx is ~s dfnx is ~s" pf fnx dfnx))
+		(if debug (xlogntf "gc0: pf is ~s fnx is ~s~%    dfnx is ~s" pf fnx dfnx))
 		(if pf
 			(with-open-file (fi pf :direction :input)
 			  (let* ((result (read fi))
@@ -49,7 +49,9 @@
 					  (if debug
 						  (xlogntf "gc0:prop ~s val ~s dir ~s" property res dfnx))
 					  res))))
-			(get-config0 (butlast dfnx) fn ty property)))
+			(let ((res (get-config0 (butlast dfnx) fn ty property)))
+			  (if debug (xlogntf "gc0: prop ~s is ~s" property res))
+			  res)))
 	  nil))
 
 (defun get-config (filename property &key  (dir nil) (debug nil))
@@ -64,7 +66,7 @@
 		 (fn (pathname-name filename))
 		 (ty (pathname-type filename)))
 	(if debug
-		(xlogntf "gc: fn ~s prop ~s dir ~s ddir ~s" filename property dir ddir))
+		(xlogntf "gc: fn ~s prop ~s dir ~s~%    ddir ~s" filename property dir ddir))
 	
 	(handler-case
 		(get-config0 ddir fn ty property :debug debug)
