@@ -29,29 +29,30 @@
 
 (defun get-config0 (dir fn ty property &key (debug nil) )
   "look in parent, recursiveley. If a mounted /Volume on mac os-x, it won't go to home directory. "
-  (if debug
-	  (xlogntf "gc0: dir ~s fn ~s ty ~s prop ~s" dir fn ty property))
+  (if debug (xlogntf "gc0: dir ~s fn ~s ty ~s prop ~s" dir fn ty property))
   (if dir
 	  (let*  ((fnx (make-pathname :directory dir :name fn :type ty))
 			  (*print-pretty* nil)
 			  (dfnx (pathname-directory fnx))
 			  (pf (probe-file fnx)))
 		(if debug (xlogntf "gc0: pf is ~s fnx is ~s~%    dfnx is ~s" pf fnx dfnx))
-		(if pf
-			(with-open-file (fi pf :direction :input)
-			  (let* ((result (read fi))
-					 (ans (assoc property result)))
-				(if debug
-					(xlogntf "gc0: config file ~s ~%    assoc ~s ~%    pf ~s" result ans pf))
-				(if (not ans)
-					(get-config0 (butlast dir) fn ty  property)
-					(let ((res (cdr ans)))
-					  (if debug
-						  (xlogntf "gc0:prop ~s val ~s dir ~s" property res dfnx))
-					  res))))
-			(let ((res (get-config0 (butlast dfnx) fn ty property)))
-			  (if debug (xlogntf "gc0: prop ~s is ~s" property res))
-			  res)))
+		(cond (pf
+			   (xlogntf "gco: file found at ~s" fnx)
+			   (with-open-file (fi pf :direction :input)
+				 (let* ((result (read fi))
+						(ans (assoc property result)))
+				   (if debug (xlogntf "gc0: config file ~s ~%    assoc ~s ~%    pf ~s" result ans pf))
+				   (if (not ans)
+					   (get-config0 (butlast dir) fn ty  property)
+					   (let ((res (cdr ans)))
+						 (if debug
+							 (xlogntf "gc0:prop ~s val ~s dir ~s" property res dfnx))
+						 (values res fnx))))))
+			  (t (if debug (xlogntf "gc0: no file in ~s" fnx))
+				 (multiple-value-bind (r f)
+					 (get-config0 (butlast dfnx) fn ty property)
+				   (if debug (xlogntf "gc0: prop ~s is ~s in file ~s" property r f))
+				   (values r f)))))
 	  nil))
 
 (defun get-config (filename property &key  (dir nil) (debug nil))
