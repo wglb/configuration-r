@@ -33,11 +33,10 @@
   (if dir
 	  (let*  ((fnx (make-pathname :directory dir :name fn :type ty))
 			  (*print-pretty* nil)
-			  (dfnx (pathname-directory fnx))
+			  (dfnx (pathname-directory (namestring fnx))) ;; TODO -- why do we need the namestring
 			  (pf (probe-file fnx)))
 		(if debug (xlogntf "gc0: pf is ~s fnx is ~s~%    dfnx is ~s" pf fnx dfnx))
 		(cond (pf
-			   (xlogntf "gco: file found at ~s" fnx)
 			   (with-open-file (fi pf :direction :input)
 				 (let* ((result (read fi))
 						(ans (assoc property result)))
@@ -49,30 +48,30 @@
 							 (xlogntf "gc0:prop ~s val ~s dir ~s" property res dfnx))
 						 (values res fnx))))))
 			  (t (if debug (xlogntf "gc0: no file in ~s" fnx))
-				 (multiple-value-bind (r f)
-					 (get-config0 (butlast dfnx) fn ty property)
-				   (if debug (xlogntf "gc0: prop ~s is ~s in file ~s" property r f))
-				   (values r f)))))
+				 (let ((ndir (butlast dfnx)))
+				   (multiple-value-bind (r f)
+					   (get-config0 ndir fn ty property)
+					 (if debug (xlogntf "gco: going to parent: dfnx is ~s butlast is ~s" dfnx (butlast dfnx) ))
+					 (if debug (xlogntf "gc0: prop ~s is ~s in file ~s" property r f))
+					 (values r f))))))
 	  nil))
 
 (defun get-config (filename property &key  (dir nil) (debug nil))
   "get-config answers the property found in the file named 'fn'. 
-   filename should be filename alone with no directory components
+   filename must be a pathname from 'make-pathname or 'merge-pathnames
    If fn is not in the specified directory, or if the property is not found in that file, get-config will look in the parent.
     Recursively."
   (let* ((ddir (if dir
-				   (pathname-directory dir)
+				   (pathname-directory (namestring dir)) ;; TODO why do we need namestring
 				   (pathname-directory *default-pathname-defaults*)))
-		 
 		 (fn (pathname-name filename))
 		 (ty (pathname-type filename)))
 	(if debug
 		(xlogntf "gc: fn ~s prop ~s dir ~s~%    ddir ~s" filename property dir ddir))
-	
+	(get-config0 ddir fn ty property :debug debug)
 	(handler-case
 		(get-config0 ddir fn ty property :debug debug)
 	  (error (e)
-		(break "handler-case get-config filename ~a~% property ~s dir ~s ddir ~s fn ~s ty ~s" filename property dir ddir fn ty)
 		(xlogntf "get-config: error ~e in getting ~a from ~a" e property filename)))))
 
 (defun get-config1 (filename property &key (debug nil))
