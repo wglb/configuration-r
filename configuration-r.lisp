@@ -62,7 +62,7 @@
    If fn is not in the specified directory, or if the property is not found in that file, get-config will look in the parent.
     Recursively."
   (let* ((ddir (if dir
-				   (pathname-directory (namestring dir)) ;; TODO why do we need namestring
+				   (pathname-directory (namestring dir)) ;; TODO why do we need namestring. not needed if interactive; required if executable.
 				   (pathname-directory *default-pathname-defaults*)))
 		 (fn (pathname-name filename))
 		 (ty (pathname-type filename)))
