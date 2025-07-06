@@ -76,7 +76,7 @@
 		(xlogntf "get-config: error ~e in getting ~a from ~a" e property filename)))))
 
 (defun get-config1 (filename property &key (debug nil))
-  "TODO -- this is making errors building up the pathname. Most noteable if passed an absolute pathname"
+  "TODO -- this is making errors building up the pathname. Most noteable if passed an absolute pathname  "
   (let* ((dir (pathname-directory 
 			   (make-pathname 
 				:name 
