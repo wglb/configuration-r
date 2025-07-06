@@ -60,7 +60,8 @@
   "get-config answers the property found in the file named 'fn'. 
    filename must be a pathname from 'make-pathname or 'merge-pathnames
    If fn is not in the specified directory, or if the property is not found in that file, get-config will look in the parent.
-    Recursively."
+    Recursively.
+    Returns values of (result filename)"
   (let* ((ddir (if dir
 				   (pathname-directory (namestring dir)) ;; TODO why do we need namestring. not needed if interactive; required if executable.
 				   (pathname-directory *default-pathname-defaults*)))
@@ -75,17 +76,18 @@
 		(xlogntf "get-config: error ~e in getting ~a from ~a" e property filename)))))
 
 (defun get-config1 (filename property &key (debug nil))
+  "TODO -- this is making errors building up the pathname. Most noteable if passed an absolute pathname"
   (let* ((dir (pathname-directory 
-			  (make-pathname 
-			   :name 
-			   (pathname-name filename)
-			   :directory (append 
-						   (pathname-directory (merge-pathnames *default-pathname-defaults* (directory-namestring filename)))
-						   (list `,(directory-namestring filename)))
-			   :type (pathname-type filename))))
-		(fn (pathname-name filename))
-		(ty (pathname-type filename))
-		(ans (get-config0 dir fn ty property :debug debug)))
+			   (make-pathname 
+				:name 
+				(pathname-name filename)
+				:directory (append 
+							(pathname-directory (merge-pathnames *default-pathname-defaults* (directory-namestring filename)))
+							(list `,(directory-namestring filename)))
+				:type (pathname-type filename))))
+		 (fn (pathname-name filename))
+		 (ty (pathname-type filename))
+		 (ans (get-config0 dir fn ty property :debug debug)))
 	(if debug
 		(xlogntf "gc1: dir ~s fn ~s property ~s val ~s" filename fn property ans))
 	ans))
