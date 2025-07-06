@@ -41,12 +41,14 @@
 				 (let* ((result (read fi))
 						(ans (assoc property result)))
 				   (if debug (xlogntf "gc0: config file ~s ~%    assoc ~s ~%    pf ~s" result ans pf))
-				   (if (not ans)
-					   (get-config0 (butlast dir) fn ty  property)
-					   (let ((res (cdr ans)))
-						 (if debug
-							 (xlogntf "gc0:prop ~s val ~s dir ~s" property res dfnx))
-						 (values res fnx))))))
+				   (cond  ((not ans)
+                           (if debug (xlogntf "gc0: property ~s not found" property))
+					       (get-config0 (butlast dir) fn ty  property))
+
+                          (t (let ((res (cdr ans)))
+						       (if debug
+							       (xlogntf "gc0:prop ans ~s val ~s dir ~s" property res dfnx))
+                               (values res fnx)))))))
 			  (t (if debug (xlogntf "gc0: no file in ~s" fnx))
 				 (let ((ndir (butlast dfnx)))
 				   (multiple-value-bind (r f)
