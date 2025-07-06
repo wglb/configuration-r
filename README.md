@@ -10,7 +10,6 @@ is encountered.
 
 ### Example of use
 
-
 ```common-lisp
 (defun worker()
   (let ((val (get-config "config-file-name.lsp" :workload)))
@@ -21,7 +20,6 @@ is encountered.
 ((:workload . 9)
  (:output-file . "result.out"))
 ```
-
 
 Configuration files are s-expressions, a list of cons elements whose `car` is the parameter name
 and the `cdr` is the value.
