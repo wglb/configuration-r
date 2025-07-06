@@ -36,6 +36,3 @@ If debug is not nil, traces of the search.
 
 `xlog` is required. It can be found at [xlog](https://github.com/wglb/xlog/tree/master).
 
-
-
-
