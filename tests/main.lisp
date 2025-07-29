@@ -64,24 +64,26 @@
     ;; Use uiop:pathname-equal for robust comparison. Canonicalize the expected path.
     (fiveam:is (uiop:pathname-equal (truename (merge-pathnames "config.lisp" *test-temp-dir*)) file)))
 
-  ;; Test finding property in a subdirectory, expecting it to find in parent (from subdir's parent)
+  ;; Test finding property in a subdirectory, asking for :test-prop-1 (which is in root config)
   (multiple-value-bind (value file)
       (configuration-r:get-config (merge-pathnames "config.lisp" (merge-pathnames "subdir/" *test-temp-dir*))
                                   :test-prop-1
                                   :dir (merge-pathnames "subdir/" *test-temp-dir*) ;; Start search from subdir
                                   :debug t)
-    (fiveam:is (equal "value-from-subdir" value)) ;; It should find the subdir's config first
-    ;; Use uiop:pathname-equal for robust comparison. Canonicalize the expected path.
-    (fiveam:is (uiop:pathname-equal (truename (merge-pathnames "config.lisp" (merge-pathnames "subdir/" *test-temp-dir*))) file)))
+    ;; Expect it to recurse up and find "value-from-root"
+    (fiveam:is (equal "value-from-root" value))
+    ;; Expect the file found to be the root config.lisp
+    (fiveam:is (uiop:pathname-equal (truename (merge-pathnames "config.lisp" *test-temp-dir*)) file)))
 
-  ;; Test finding a property specific to the subdirectory's config
+  ;; Test finding a property specific to the subdirectory's config (:test-prop-2)
   (multiple-value-bind (value file)
       (configuration-r:get-config (merge-pathnames "config.lisp" (merge-pathnames "subdir/" *test-temp-dir*))
                                   :test-prop-2
                                   :dir (merge-pathnames "subdir/" *test-temp-dir*) ;; Start search from subdir
                                   :debug t)
+    ;; Expect it to find "value-from-subdir" in the subdir's config.lisp
     (fiveam:is (equal "value-from-subdir" value))
-    ;; Use uiop:pathname-equal for robust comparison. Canonicalize the expected path.
+    ;; Expect the file found to be the subdir's config.lisp
     (fiveam:is (uiop:pathname-equal (truename (merge-pathnames "config.lisp" (merge-pathnames "subdir/" *test-temp-dir*))) file)))
 
   ;; Test property not found
