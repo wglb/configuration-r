@@ -37,19 +37,19 @@
 (fiveam:def-suite :configuration-r-tests)
 (fiveam:in-suite :configuration-r-tests)
 
-;; Define a fixture for setup and teardown
+;; Define a fixture for setup and teardown using unwind-protect
 (fiveam:def-fixture config-file-fixture ()
   ;; Setup part: runs before tests using this fixture
   (create-test-config-files)
-  ;; Yield to the tests
-  (fiveam:unwind-protect-case
-      (progn
-        (format t "~&Running tests with config-file-fixture...~%")
-        (fiveam:yield))
+  ;; Use unwind-protect to ensure cleanup runs
+  (unwind-protect
+       (progn
+         ;; This is the body where the tests run
+         (format t "~&Running tests with config-file-fixture...~%")
+         (fiveam:yield))
     ;; Teardown part: runs after tests using this fixture, even if errors occur
-    (:always
-     (format t "~&Cleaning up config-file-fixture...~%")
-     (cleanup-test-config-files))))
+    (format t "~&Cleaning up config-file-fixture...~%")
+    (cleanup-test-config-files)))
 
 ;; --- Individual Test Cases ---
 
