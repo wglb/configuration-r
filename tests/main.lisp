@@ -8,8 +8,10 @@
 
 (defun create-test-config-files ()
   "Creates a temporary directory with mock configuration files for testing."
+  ;; Ensure *test-temp-dir* is a directory pathname (already done)
   (uiop:ensure-directory-pathname *test-temp-dir*)
-  (uiop:ensure-all-directories-exist *test-temp-dir*)
+  ;; Pass a list containing the directory pathname to ensure-all-directories-exist
+  (uiop:ensure-all-directories-exist (list *test-temp-dir*)) ; <-- CORRECTED LINE
 
   ;; File 1: In the root test directory
   (with-open-file (f (merge-pathnames "config.lisp" *test-temp-dir*)
@@ -21,7 +23,7 @@
   ;; File 2: In a subdirectory
   (let* ((subdir (merge-pathnames "subdir/" *test-temp-dir*)))
     (uiop:ensure-directory-pathname subdir)
-    (uiop:ensure-all-directories-exist subdir)
+    (uiop:ensure-all-directories-exist (list subdir)) ; <-- Also correct this one for consistency
     (with-open-file (f (merge-pathnames "config.lisp" subdir)
                        :direction :output
                        :if-exists :supersede
