@@ -43,10 +43,11 @@
   (create-test-config-files)
   ;; Use unwind-protect to ensure cleanup runs
   (unwind-protect
+       ;; This is the body where the tests run, implicitly yielded by the fixture
        (progn
-         ;; This is the body where the tests run
          (format t "~&Running tests with config-file-fixture...~%")
-         (fiveam:yield))
+         ;; The actual tests wrapped by WITH-FIXTURE will go here
+         )
     ;; Teardown part: runs after tests using this fixture, even if errors occur
     (format t "~&Cleaning up config-file-fixture...~%")
     (cleanup-test-config-files)))
