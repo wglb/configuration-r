@@ -13,8 +13,8 @@
             tpn
             (let ((npn (uiop:pathname-parent-directory-pathname pn)))
               (debugc 5 (xlogntf "ffip0: no file in ~s, trying parent ~s" pn npn))
-              ;; Stop recursion if we've reached the root or an unchangeable parent
-              (if (equal npn pn)
+              ;; Stop recursion if we've reached the root or an unchangeable parent (e.g., /)
+              (if (uiop:pathname-equal npn pn) ;; Use uiop:pathname-equal for robust comparison
                   nil
                   (find-file-in-parent0 npn target)))))))
 
@@ -22,7 +22,8 @@
   "Searches for TARGET file in PN and its parent directories.
    Accounts for being in an emacs volume that won't cd .. to root of file system.
    Returns the pathname of the found file or NIL."
-  (let ((ans (find-file-in-parent0 pn target)))
+  (let* ((initial-pn (uiop:ensure-directory-pathname pn)) ;; Ensure PN is a directory pathname
+         (ans (find-file-in-parent0 initial-pn target)))
 	(debugc 5 (xlogntf "ffip: initial probe says ~a" ans))
 	(unless ans
 	  (xlogntf "ffip: didn't find in current path, trying home directory fallback.")
@@ -33,7 +34,6 @@
 
 (defparameter *config* -1)
 
-;; Changed get-config0 to consistently accept a PATHNAME object for the directory
 (defun get-config0 (current-dir-pathname fn ty property &key (debug nil) )
   "Recursively looks for a config file named FN.TY with PROPERTY in CURRENT-DIR-PATHNAME
    and its parent directories. CURRENT-DIR-PATHNAME must be a pathname object."
@@ -69,7 +69,7 @@
          (let ((parent-dir (uiop:pathname-parent-directory-pathname current-dir-pathname)))
            ;; Stop recursion if parent is same as current (e.g., at the root of the filesystem)
            ;; or if we've reached a point where parent-dir is NIL (e.g., relative path with no parent)
-           (if (or (equal parent-dir current-dir-pathname)
+           (if (or (uiop:pathname-equal parent-dir current-dir-pathname) ;; Use uiop:pathname-equal for robustness
                    (null parent-dir))
                nil
                (multiple-value-bind (r f)
