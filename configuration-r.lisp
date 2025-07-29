@@ -71,7 +71,6 @@
 		 (ty (pathname-type filename)))
 	(if debug
 		(xlogntf "gc: fn ~s prop ~s dir ~s~%    ddir ~s" filename property dir ddir))
-	(get-config0 ddir fn ty property :debug debug)
 	(handler-case
 		(get-config0 ddir fn ty property :debug debug)
 	  (error (e)
