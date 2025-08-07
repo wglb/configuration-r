@@ -11,10 +11,10 @@
         (debugc 5 (xlogntf "ffip0: target ~s pn ~s -> tpn ~s" target pn tpn))
         (if (probe-file tpn)
             tpn
-            (let ((npn (uiop:pathname-parent-directory-pathname pn)))
+            (let ((npn (pathname-parent-directory-pathname pn)))
               (debugc 5 (xlogntf "ffip0: no file in ~s, trying parent ~s" pn npn))
               ;; Stop recursion if we've reached the root or an unchangeable parent (e.g., /)
-              (if (uiop:pathname-equal npn pn) ;; Use uiop:pathname-equal for robust comparison
+              (if (pathname-equal npn pn) ;; Use pathname-equal for robust comparison
                   nil
                   (find-file-in-parent0 npn target)))))))
 
@@ -22,7 +22,7 @@
   "Searches for TARGET file in PN and its parent directories.
    Accounts for being in an emacs volume that won't cd .. to root of file system.
    Returns the pathname of the found file or NIL."
-  (let* ((initial-pn (uiop:ensure-directory-pathname pn)) ;; Ensure PN is a directory pathname
+  (let* ((initial-pn (ensure-directory-pathname pn)) ;; Ensure PN is a directory pathname
          (ans (find-file-in-parent0 initial-pn target)))
 	(debugc 5 (xlogntf "ffip: initial probe says ~a" ans))
 	(unless ans
@@ -40,7 +40,7 @@
   (if debug (xlogntf "gc0: current-dir-pathname ~s fn ~s ty ~s prop ~s" current-dir-pathname fn ty property))
 
   ;; Check for a circular loop
-  (when (member current-dir-pathname visited-dirs :test #'uiop:pathname-equal)
+  (when (member current-dir-pathname visited-dirs :test #'pathname-equal)
     (if debug (xlogntf "gc0: Circular path detected, stopping recursion: ~s" current-dir-pathname))
     (return-from get-config0 nil))
 
@@ -63,8 +63,8 @@
              (cond
                ((not ans)
                 (if debug (xlogntf "gc0: property ~s not found in ~s" property found-file))
-                ;; Recurse to parent directory (passing a pathname object)
-                (get-config0 (uiop:pathname-parent-directory-pathname current-dir-pathname) fn ty property :visited-dirs new-visited-dirs))
+                ;; Now passing the :visited-dirs list to the recursive call
+                (get-config0 (pathname-parent-directory-pathname current-dir-pathname) fn ty property :visited-dirs new-visited-dirs))
                (t
                 (let ((res (cdr ans)))
                   (if debug (xlogntf "gc0: prop ans ~s val ~s from file ~s" property res found-file))
@@ -72,10 +72,10 @@
         (t
          (if debug (xlogntf "gc0: no file ~s in ~s" config-file-pathname current-dir-pathname))
          ;; Recurse to parent directory
-         (let ((parent-dir (uiop:pathname-parent-directory-pathname current-dir-pathname)))
+         (let ((parent-dir (pathname-parent-directory-pathname current-dir-pathname)))
            ;; Stop recursion if parent is same as current (e.g., at the root of the filesystem)
            ;; or if we've reached a point where parent-dir is NIL (e.g., relative path with no parent)
-           (if (or (uiop:pathname-equal parent-dir current-dir-pathname)
+           (if (or (pathname-equal parent-dir current-dir-pathname)
                    (null parent-dir))
                nil
                (multiple-value-bind (r f)
@@ -92,25 +92,27 @@
     Recursively.
     Returns values of (result filename)."
   (let* ((initial-dir-pathname (cond
-                                 (dir (uiop:ensure-directory-pathname dir))
-                                 (t (uiop:getcwd)))) ;; Use getcwd for current working directory as a pathname
+                                 (dir (ensure-directory-pathname dir))
+                                 (t (getcwd)))) ;; Use getcwd for current working directory as a pathname
          (fn (pathname-name filename))
          (ty (pathname-type filename)))
     (if debug
         (xlogntf "gc: filename ~s prop ~s dir ~s~%    initial-dir-pathname ~s" filename property dir initial-dir-pathname))
-    (handler-case
-        (get-config0 initial-dir-pathname fn ty property :debug debug)
-      (error (e)
-        (xlogntf "get-config: error ~e in getting ~a from ~a" e property filename)
-        nil))))
+    ;; The fix: Canonicalize the initial-dir-pathname to an absolute path
+    (let ((canonical-dir (truename initial-dir-pathname)))
+      (handler-case
+          (get-config0 canonical-dir fn ty property :debug debug)
+        (error (e)
+          (xlogntf "get-config: error ~e in getting ~a from ~a" e property filename)
+          nil)))))
 
 (defun get-config1 (filename property &key (debug nil))
   "This function is noted as problematic in the original code.
    It attempts to get a config property from a specific file path.
    Its pathname handling is simplified here, but its original intent
    and potential issues remain."
-  (let* ((file-pathname (uiop:ensure-pathname filename :want-pathname t))
-         (dir-pathname (uiop:pathname-directory-pathname file-pathname)) ;; Get directory as a pathname object
+  (let* ((file-pathname (ensure-pathname filename :want-pathname t))
+         (dir-pathname (pathname-directory-pathname file-pathname)) ;; Get directory as a pathname object
          (fn (pathname-name file-pathname))
          (ty (pathname-type file-pathname))
          (ans (get-config0 dir-pathname fn ty property :debug debug)))

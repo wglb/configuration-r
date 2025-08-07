@@ -1,4 +1,26 @@
-* CHANGELOG
+CHANGELOG
+
+** 2025-08-07
+
+*** Fixed
+
+Lisp Package Resolution Error: Resolved a READ error that occurred when the
+uiop:truename function was called, due to the symbol not being external in
+certain Lisp environments. This was fixed by explicitly listing all
+required functions from the UIOP package in the configuration-r-pkg.lisp
+file using :import-from, which guarantees that the symbols are correctly
+available and avoids environment-specific issues.
+
+*** Changed
+
+Package Definition: The configuration-r-pkg.lisp file was modified to use
+:import-from for all UIOP functions, improving code clarity and
+portability. Consequently, all instances of uiop: prefixes were removed
+from configuration-r.lisp.
+
+Test Cases: Added a new test to verify that calling get-config with a
+relative pathname correctly resolves to an absolute path and does not cause
+a stack overflow.
 
 ** 2025-07-29
 
