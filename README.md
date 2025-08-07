@@ -37,3 +37,9 @@ If debug is not nil, traces of the search.
 `xlog` is required. It can be found at [xlog](https://github.com/wglb/xlog/tree/master).
 
 
+### To run the tests
+
+(asdf:clear-configuration)
+(asdf:initialize-output-translations)
+(asdf:load-system :configuration-r-test) ; Explicitly load the test system first
+(asdf:test-system :configuration-r) ; Then run the tests for the main system
