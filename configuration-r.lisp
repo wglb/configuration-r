@@ -34,17 +34,23 @@
 
 (defparameter *config* -1)
 
-(defun get-config0 (current-dir-pathname fn ty property &key (debug nil) )
+(defun get-config0 (current-dir-pathname fn ty property &key (debug nil) (visited-dirs nil))
   "Recursively looks for a config file named FN.TY with PROPERTY in CURRENT-DIR-PATHNAME
    and its parent directories. CURRENT-DIR-PATHNAME must be a pathname object."
   (if debug (xlogntf "gc0: current-dir-pathname ~s fn ~s ty ~s prop ~s" current-dir-pathname fn ty property))
+
+  ;; Check for a circular loop
+  (when (member current-dir-pathname visited-dirs :test #'uiop:pathname-equal)
+    (if debug (xlogntf "gc0: Circular path detected, stopping recursion: ~s" current-dir-pathname))
+    (return-from get-config0 nil))
 
   (when current-dir-pathname
     (let* ((config-file-pathname (make-pathname :directory (pathname-directory current-dir-pathname)
                                                 :name fn
                                                 :type ty))
-           (*print-pretty* nil) ; Keep this if it's explicitly for 'read' behavior, but be aware of scope
-           (found-file (probe-file config-file-pathname)))
+           (*print-pretty* nil)
+           (found-file (probe-file config-file-pathname))
+           (new-visited-dirs (cons current-dir-pathname visited-dirs)))
 
       (if debug (xlogntf "gc0: config-file-pathname ~s found-file ~s" config-file-pathname found-file))
 
@@ -58,7 +64,7 @@
                ((not ans)
                 (if debug (xlogntf "gc0: property ~s not found in ~s" property found-file))
                 ;; Recurse to parent directory (passing a pathname object)
-                (get-config0 (uiop:pathname-parent-directory-pathname current-dir-pathname) fn ty property))
+                (get-config0 (uiop:pathname-parent-directory-pathname current-dir-pathname) fn ty property :visited-dirs new-visited-dirs))
                (t
                 (let ((res (cdr ans)))
                   (if debug (xlogntf "gc0: prop ans ~s val ~s from file ~s" property res found-file))
@@ -69,11 +75,11 @@
          (let ((parent-dir (uiop:pathname-parent-directory-pathname current-dir-pathname)))
            ;; Stop recursion if parent is same as current (e.g., at the root of the filesystem)
            ;; or if we've reached a point where parent-dir is NIL (e.g., relative path with no parent)
-           (if (or (uiop:pathname-equal parent-dir current-dir-pathname) ;; Use uiop:pathname-equal for robustness
+           (if (or (uiop:pathname-equal parent-dir current-dir-pathname)
                    (null parent-dir))
                nil
                (multiple-value-bind (r f)
-                   (get-config0 parent-dir fn ty property)
+                   (get-config0 parent-dir fn ty property :visited-dirs new-visited-dirs)
                  (if debug (xlogntf "gc0: going to parent: parent-dir is ~s" parent-dir))
                  (if debug (xlogntf "gc0: prop ~s is ~s in file ~s" property r f))
                  (values r f)))))))))
