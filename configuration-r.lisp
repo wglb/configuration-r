@@ -4,27 +4,31 @@
 
 (in-package #:configuration-r)
 
-(defun find-file-in-parent0 (pn target)
-  "Helper for FIND-FILE-IN-PARENT. Recursively searches for TARGET starting from PN and going up."
-  (if pn
-      (let ((tpn (merge-pathnames target pn)))
-        (debugc 5 (xlogntf "ffip0: target ~s pn ~s -> tpn ~s" target pn tpn))
-        (if (probe-file tpn)
-            tpn
-            (let ((npn (pathname-parent-directory-pathname pn)))
-              (debugc 5 (xlogntf "ffip0: no file in ~s, trying parent ~s" pn npn))
-              ;; Stop recursion if we've reached the root or an unchangeable parent (e.g., /)
-              (if (pathname-equal npn pn)
-                  nil
-                  (find-file-in-parent0 npn target)))))))
+(defun find-file-in-parent0 (pn target &optional (visited-dirs '()))
+  "Helper for FIND-FILE-IN-PARENT. Recursively searches for TARGET starting from PN and going up,
+   keeping a list of visited directories to prevent infinite loops."
+  (when (or (null pn) (member pn visited-dirs :test #'uiop:pathname-equal))
+    (debugc 5 (xlogntf "ffip0: Circular path detected or end of path reached, stopping recursion."))
+    (return-from find-file-in-parent0 nil))
+  
+  (let ((tpn (merge-pathnames target pn)))
+    (debugc 5 (xlogntf "ffip0: target ~s pn ~s -> tpn ~s" target pn tpn))
+    (if (probe-file tpn)
+        tpn
+        (let ((npn (pathname-parent-directory-pathname pn)))
+          (debugc 5 (xlogntf "ffip0: no file in ~s, trying parent ~s" pn npn))
+          (find-file-in-parent0 npn target (cons pn visited-dirs))))))
 
 (defun find-file-in-parent (pn target)
   "Searches for TARGET file in PN and its parent directories.
    Returns the pathname of the found file or NIL."
   (let* ((initial-pn (ensure-directory-pathname pn))
          (ans (find-file-in-parent0 initial-pn target)))
-	(debugc 5 (xlogntf "ffip: pn ~s target ~s -> ~s" pn target ans))
-	ans))
+    (unless ans
+      (xlogntf "ffip: didn't find in current path, trying home directory fallback.")
+      ;; Fallback to user's home directory if not found in current path
+      (setf ans (find-file-in-parent0 (user-homedir-pathname) target)))
+    ans))
 
 (defun read-config-file (filename &key (debug nil))
   "Reads a config file and returns its content as an alist.
@@ -39,52 +43,50 @@
       (if debug (xlogntf "read-config-file: Error reading ~a: ~a" filename e))
       nil)))
 
-(defun get-config0 (pn fn ty property &key (debug nil))
-  "Internal helper to get a property from a configuration file.
-   Searches for a file named FN.TY starting from directory PN and going up."
-  (let* ((filename (make-pathname :name fn :type ty))
-         (config-file (find-file-in-parent pn filename)))
-    (if debug
-        (xlogntf "gc0: pn ~s filename ~s config-file ~s" pn filename config-file))
-    (when config-file
-      (let ((alist (read-config-file config-file :debug debug)))
-        (when alist
-          (cdr (assoc property alist)))))))
-
 (defun get-config (filename property &key (dir nil) (debug nil))
   "Gets a property from a configuration file named FILENAME.
-   Searches up from the directory DIR (or current directory if DIR is nil)."
-  (let* ((file-pathname (ensure-pathname filename :want-pathname t))
-         (fn (pathname-name file-pathname))
-         (ty (pathname-type file-pathname))
-         (initial-dir-pathname (cond
+   Searches up from the directory DIR (or current directory if DIR is nil).
+    Returns values of (result filename)."
+  (let* ((initial-dir-pathname (cond
                                  (dir (ensure-directory-pathname dir))
-                                 (t (getcwd)))))
-    ;; Correctly create the full pathname and then check for its existence.
-    (let ((full-path (merge-pathnames file-pathname initial-dir-pathname)))
-        (if (and (probe-file full-path) fn ty)
-            (handler-case
-                (let ((canonical-dir (truename full-path)))
-                  (get-config0 (pathname-directory-pathname canonical-dir) fn ty property :debug debug))
-              (error (e)
-                (xlogntf "get-config: error ~e in getting ~a from ~a" e property filename)
-                nil))
-            (progn
-                (if debug (xlogntf "get-config: File does not exist or has no name/type: ~a" filename))
-                nil)))))
+                                 (t (getcwd))))
+         (fn (pathname-name filename))
+         (ty (pathname-type filename)))
+    (if (and fn ty)
+        (let* ((target-file (make-pathname :name fn :type ty))
+               (config-file (find-file-in-parent initial-dir-pathname target-file)))
+          (if config-file
+              (let ((alist (read-config-file config-file :debug debug)))
+                (when alist
+                  (let ((ans (cdr (assoc property alist))))
+                    (if debug (xlogntf "gc: prop ans ~s val ~s from file ~s" property ans config-file))
+                    (values ans config-file))))
+              (progn
+                (if debug (xlogntf "gc: Did not find file ~a searching from ~a" target-file initial-dir-pathname))
+                nil)))
+        (progn
+          (if debug (xlogntf "gc: Cannot search for file with no name/type: ~a" filename))
+          nil))))
 
 (defun get-config1 (filename property &key (debug nil))
-  "Gets a config property from a specific file path.
-   This version is simplified to avoid the issues with get-config's directory handling."
+  "This function gets a property from a specific file path.
+   It searches up from the directory of the given FILENAME."
   (let* ((file-pathname (ensure-pathname filename :want-pathname t))
+         (dir-pathname (pathname-directory-pathname file-pathname))
          (fn (pathname-name file-pathname))
          (ty (pathname-type file-pathname)))
-    (if (and (probe-file file-pathname) fn ty)
-        (let ((ans (get-config0 (pathname-directory-pathname file-pathname) fn ty property :debug debug)))
-          (if debug
-              (xlogntf "gc1: filename ~s fn ~s property ~s val ~s" filename fn property ans))
-          ans)
+    (if (and fn ty)
+        (let* ((target-file (make-pathname :name fn :type ty))
+               (config-file (find-file-in-parent dir-pathname target-file)))
+          (if config-file
+              (let ((alist (read-config-file config-file :debug debug)))
+                (when alist
+                  (let ((ans (cdr (assoc property alist))))
+                    (if debug (xlogntf "gc1: prop ans ~s val ~s from file ~s" property ans config-file))
+                    (values ans config-file))))
+              (progn
+                (if debug (xlogntf "gc1: Did not find file ~a searching from ~a" target-file dir-pathname))
+                nil)))
         (progn
-          (if debug
-              (xlogntf "get-config1: File does not exist or has no name/type: ~a" filename))
+          (if debug (xlogntf "gc1: Cannot search for file with no name/type: ~a" filename))
           nil))))
