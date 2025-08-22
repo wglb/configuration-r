@@ -4,31 +4,37 @@
 
 (in-package #:configuration-r)
 
-(defun find-file-in-parent0 (pn target &optional (visited-dirs '()))
-  "Helper for FIND-FILE-IN-PARENT. Recursively searches for TARGET starting from PN and going up,
-   keeping a list of visited directories to prevent infinite loops."
-  (when (or (null pn) (member pn visited-dirs :test #'uiop:pathname-equal))
-    (debugc 5 (xlogntf "ffip0: Circular path detected or end of path reached, stopping recursion."))
-    (return-from find-file-in-parent0 nil))
-  
-  (let ((tpn (merge-pathnames target pn)))
-    (debugc 5 (xlogntf "ffip0: target ~s pn ~s -> tpn ~s" target pn tpn))
-    (if (probe-file tpn)
-        tpn
-        (let ((npn (pathname-parent-directory-pathname pn)))
-          (debugc 5 (xlogntf "ffip0: no file in ~s, trying parent ~s" pn npn))
-          (find-file-in-parent0 npn target (cons pn visited-dirs))))))
+(defun find-file-in-parent0 (pn target)
+  "Helper for FIND-FILE-IN-PARENT. Recursively searches for TARGET starting from PN and going up."
+  #+nil (break "ffip: pn ~s target ~s root? ~s" pn target (equal #P"/" pn))
+  (if (and (not (equal #P"/" pn)) (not (equal #P"" pn)))
+      (let ((tpn (merge-pathnames target pn)))
+        (debugc 5 (xlogntf "ffip0: target ~s pn ~s -> tpn ~s" target pn tpn))
+        (if (probe-file tpn)
+            tpn
+            (let ((npn (pathname-parent-directory-pathname pn)))
+              (debugc 5 (xlogntf "ffip0: no file in ~s, trying parent ~s" pn npn))
+              ;; The fix: Check if the new path is NIL or the directory list is a proper list (not circular).
+              (if (or (null npn) (not (listp (pathname-directory npn))))
+                  nil
+				  (if (equal #P"/" tpn)
+					  nil
+					  (find-file-in-parent0 npn target))))))
+	  (progn #+nil (break "ffip bogon: pn ~s target ~s root? ~s" pn target (equal #P"/" pn))
+			 nil)))
+
 
 (defun find-file-in-parent (pn target)
   "Searches for TARGET file in PN and its parent directories.
    Returns the pathname of the found file or NIL."
   (let* ((initial-pn (ensure-directory-pathname pn))
          (ans (find-file-in-parent0 initial-pn target)))
-    (unless ans
-      (xlogntf "ffip: didn't find in current path, trying home directory fallback.")
-      ;; Fallback to user's home directory if not found in current path
-      (setf ans (find-file-in-parent0 (user-homedir-pathname) target)))
-    ans))
+	(unless ans
+	  (xlogntf "ffip: didn't find in current path, trying home directory fallback.")
+	  ;; Fallback to user's home directory if not found in current path
+	  (setf ans (find-file-in-parent0 (user-homedir-pathname) target))
+	  (debugc 5 (xlogntf "ffip: Now got ans ~a after home fallback" ans)))
+	ans))
 
 (defun read-config-file (filename &key (debug nil))
   "Reads a config file and returns its content as an alist.
