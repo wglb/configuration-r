@@ -1,5 +1,11 @@
 CHANGELOG
 
+### **Version 0.2.3 (2025-08-22)**
+
+* **Fixed a critical recursion bug** in `get-config` and `get-config1` that caused an infinite loop and stack overflow when a non-existent file with a directory but no filename was passed as an argument. The recursion is now correctly prevented by first checking for the existence of the file and its filename and type.
+
+* **Improved pathname handling** in `get-config` to ensure that only a valid directory pathname is passed to the recursive search function, further preventing potential errors and ensuring correct behavior when searching for files.
+
 ** 2025-08-07
 
 *** Fixed
