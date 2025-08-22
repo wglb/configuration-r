@@ -1,7 +1,7 @@
 ;;;; configuration-r-test-pkg.lisp
 
 (defpackage #:configuration-r-test
-  (:use #:cl #:fiveam #:configuration-r #:uiop) ;; Use FiveAM, your library, and UIOP here
+  (:use #:cl #:fiveam #:configuration-r #:uiop :xlog) ;; Use FiveAM, your library, and UIOP here
   (:export #:create-test-config-files
            #:cleanup-test-config-files
            #:with-test-directory-loop))
