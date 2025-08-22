@@ -4,7 +4,7 @@
   :description "Tests for the configuration-r library"
   :author "wgl@ciex-security.com"
   :license  "GPL"
-  :version "0.2."
+  :version "0.2.3"
   :serial t
   :depends-on (#:configuration-r #:fiveam)
   :components ((:file "configuration-r-test-pkg") ;; Added the new package file
