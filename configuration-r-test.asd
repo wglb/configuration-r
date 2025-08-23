@@ -10,11 +10,7 @@
   :components ((:file "configuration-r-test-pkg")
                (:module "tests"
                 :components ((:file "main-config-r-test"))))
-  :perform (asdf:test-op (op c)
-             (unwind-protect
-                  (progn
-                    ;; Set this to true to see the test output
-                    (setf fiveam:*test-dribble* t)
-                    (uiop:symbol-call :configuration-r-test :create-test-config-files)
-                    (uiop:symbol-call :fiveam :run! :configuration-r-tests))
-               (uiop:symbol-call :configuration-r-test :cleanup-test-config-files))))
+  :perform (asdf:test-op (o c)
+             (uiop:symbol-call :configuration-r-test :run-tests-with-cleanup)))
+
+

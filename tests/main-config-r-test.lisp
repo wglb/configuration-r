@@ -1,79 +1,75 @@
 ;;;; main-config-r-test.lisp
+
 (in-package #:configuration-r-test)
 
-(fiveam:def-suite :configuration-r-tests
-  :description "Main test suite for configuration-r.")
+(def-suite configuration-r-tests
+  :description "Tests for the configuration-r library.")
+(in-suite configuration-r-tests)
 
-(fiveam:in-suite :configuration-r-tests)
+(defparameter *test-temp-dir* (merge-pathnames "configuration-r-test-temp/" (uiop:temporary-directory)))
+(defparameter *subdir* (merge-pathnames "subdir/" *test-temp-dir*))
+(defparameter *subsubdir* (merge-pathnames "subdir/subsubdir/" *test-temp-dir*))
+(defparameter *test-file-1* (merge-pathnames "config.lisp" *test-temp-dir*))
+(defparameter *test-file-2* (merge-pathnames "config.lisp" *subdir*))
+(defparameter *test-file-3* (merge-pathnames "config.lisp" *subsubdir*))
 
-(fiveam:test nonexistent-file-handling
-  "Tests that GET-CONFIG and GET-CONFIG1 return NIL when the file does not exist."
-  (let* ((nonexistent-file-path (uiop:merge-pathnames* "non-existent-file.lisp" (uiop:temporary-directory)))
-         (nonexistent-file-name (file-namestring nonexistent-file-path)))
-    ;; Sanity check to ensure the file really doesn't exist
-    (fiveam:is-false (probe-file nonexistent-file-path)
-                     "Precondition failed: Temporary non-existent file should not exist.")
+(defun create-test-config-files ()
+  "Creates a temporary directory with mock configuration files for testing."
+  (uiop:ensure-all-directories-exist (list *subsubdir*))
+  
+  (with-open-file (f *test-file-1* :direction :output :if-exists :supersede :if-does-not-exist :create)
+    (format f "((:test-prop-1 . \"value-from-root\")
+                (:common-prop . \"common-root\"))~%"))
 
-    ;; Test GET-CONFIG with a non-existent file
-    (fiveam:is-false (get-config nonexistent-file-path :property :debug t)
-                     "GET-CONFIG should return NIL for a non-existent file.")
+  (with-open-file (f *test-file-2* :direction :output :if-exists :supersede :if-does-not-exist :create)
+    (format f "((:test-prop-2 . \"value-from-subdir\")
+                (:common-prop . \"common-subdir\"))~%"))
+                
+  (with-open-file (f *test-file-3* :direction :output :if-exists :supersede :if-does-not-exist :create)
+    (format f "((:test-prop-3 . \"value-from-subsubdir\"))~%")))
 
-    ;; Test GET-CONFIG1 with a non-existent file
-    (fiveam:is-false (get-config1 nonexistent-file-name :property :debug t)
-                     "GET-CONFIG1 should return NIL for a non-existent file.")))
+(defun cleanup-test-config-files ()
+  "Removes the temporary directory and all its contents."
+  (when (uiop:directory-exists-p *test-temp-dir*)
+    (uiop:delete-directory-tree *test-temp-dir* :validate t)))
 
-(fiveam:test another-nonexistent-file-handling
-  "Tests that GET-CONFIG and GET-CONFIG1 return NIL when the file does not exist."
-  (let* ((nonexistent-file-path (uiop:merge-pathnames* "non-existent-file.lisp" (uiop:temporary-directory)))
-         (nonexistent-file-name (file-namestring nonexistent-file-path)))
-    ;; Sanity check to ensure the file really doesn't exist
-    (fiveam:is-false (probe-file nonexistent-file-path)
-                     "Precondition failed: Temporary non-existent file should not exist.")
+;; Main function to be called by ASDF's test-op
+(defun run-tests-with-cleanup ()
+  (unwind-protect
+       (progn
+         (create-test-config-files)
+         (fiveam:run! :configuration-r-tests))
+    (cleanup-test-config-files)))
 
-    ;; Test GET-CONFIG with a non-existent file
-    (fiveam:is-false (get-config nonexistent-file-path :property :debug t)
-                     "GET-CONFIG should return NIL for a non-existent file.")
 
-    ;; Test GET-CONFIG1 with a non-existent file
-    (fiveam:is-false (get-config1 nonexistent-file-name :property :debug t)
-                     "GET-CONFIG1 should return NIL for a non-existent file.")))
+(test get-config-tests
+  "Tests for the GET-CONFIG function."
+  (is (equal (get-config "config.lisp" :test-prop-2 :dir *subdir*)
+             "value-from-subdir")
+      "Should find the property in the subdir file.")
+  (is (equal (get-config "config.lisp" :common-prop :dir *subdir*)
+             "common-root")
+      "Should find the common-prop by searching up the directory tree.")
+  (is-true (null (get-config "nonexistent-file.lisp" :some-prop :dir *subdir*))
+           "Should return nil when the file does not exist.")
+  (is-true (null (get-config "config.lisp" :test-prop-1 :dir "/tmp/non-existent-dir/"))
+           "Should return nil and not error when the directory does not exist.")
+  (signals error
+    (get-config (uiop:parse-native-namestring "/tmp/config.lisp") :test-prop-1)
+    "GET-CONFIG should signal an error when the filename contains a path."))
 
-(fiveam:test basic-config-retrieval
-  "Tests that GET-CONFIG retrieves a basic property from a known file."
-  (let* ((test-file (merge-pathnames "config.lisp" *test-temp-dir*))
-         (expected-value "value-from-root"))
-    (fiveam:is (equal expected-value (get-config test-file :test-prop-1 :debug t))
-               "GET-CONFIG should retrieve the correct value from config.lisp.")))
+(test get-config1-tests
+  "Tests for the GET-CONFIG1 function."
+  (is (equal (get-config1 (merge-pathnames "config.lisp" *subdir*) :test-prop-2)
+             "value-from-subdir")
+      "Should find the property in the specified file.")
+  (is (equal (get-config1 (merge-pathnames "config.lisp" *subsubdir*) :common-prop)
+             "common-root")
+      "Should find the common-prop by searching up the directory tree.")
+  (is-true (null (get-config1 (merge-pathnames "nonexistent-file.lisp" *subdir*) :some-prop))
+           "Should return nil when the file does not exist.")
+  (is-true (null (get-config1 (uiop:parse-native-namestring "/tmp/non-existent-dir/non-existent-file.lisp") :some-prop))
+           "Should return nil and not error when the directory does not exist."))
 
-(fiveam:test find-file-in-parent-basic
-  "Tests that FIND-FILE-IN-PARENT correctly locates a file in a parent directory."
-  (let* ((start-dir (merge-pathnames "subdir/nested-subdir/" *test-temp-dir*))
-         (target-file "config.lisp"))
-    (fiveam:is-true (probe-file (find-file-in-parent start-dir target-file))
-                    "FIND-FILE-IN-PARENT should find the file up the directory tree.")))
 
-(fiveam:test get-config-with-relative-path
-  "Tests that GET-CONFIG correctly finds a file from a relative path."
-  (let* ((relative-path (merge-pathnames "subdir/nested-subdir/any-file.lisp" *test-temp-dir*)))
-    (fiveam:is (equal "value-from-parent-subdir" (get-config relative-path :test-prop-2 :debug t))
-               "GET-CONFIG should find the config file in a parent directory.")))
-
-(fiveam:test get-config-with-absolute-path
-  "Tests that GET-CONFIG works with an absolute path."
-  (let* ((absolute-path (merge-pathnames "config.lisp" *test-temp-dir*)))
-    (fiveam:is (equal "value-from-root" (get-config absolute-path :test-prop-1 :debug t))
-               "GET-CONFIG should work correctly with an absolute file path.")))
-
-(fiveam:test get-config1-correct-behavior
-  "Tests that GET-CONFIG1 correctly retrieves a property from a file in the specified directory."
-  (let* ((target-file (merge-pathnames "subdir/config-subdir.lisp" *test-temp-dir*)))
-    (fiveam:is (equal "value-from-subdir" (get-config1 target-file :test-prop-3 :debug t))
-               "GET-CONFIG1 should correctly find the file and retrieve the value.")))
-
-(fiveam:test get-config-with-multiple-levels
-  "Tests that GET-CONFIG can find a file that is multiple levels up from the initial directory."
-  (let* ((start-dir (merge-pathnames "subdir/nested-subdir/deeply-nested/" *test-temp-dir*))
-         (target-file (merge-pathnames "config.lisp" start-dir)))
-    (fiveam:is (equal "value-from-root" (get-config target-file :test-prop-1 :debug t))
-               "GET-CONFIG should find the file at the root of the test directory.")))
-
+(run-tests-with-cleanup)
