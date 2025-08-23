@@ -38,10 +38,10 @@
   (handler-case
       (with-open-file (stream filename :direction :input)
         (let ((data (read stream)))
-          (if debug (xlogntf "read-config-file: read ~s" data))
+          (if debug (xlogntft "read-config-file: read ~s" data))
           data))
     (error (e)
-      (if debug (xlogntf "read-config-file: Error reading ~a: ~a" filename e))
+      (if debug (xlogntft "read-config-file: Error reading ~a: ~a" filename e))
       nil)))
 
 (defun get-config (filename property &key (dir nil) (debug nil))
@@ -63,10 +63,10 @@
                     (if debug (xlogntf "gc: prop ans ~s val ~s from file ~s" property ans config-file))
                     (values ans config-file))))
               (progn
-                (if debug (xlogntf "gc: Did not find file ~a searching from ~a" target-file initial-dir-pathname))
+                (if debug (xlogntft "gc: Did not find file ~a searching from ~a" target-file initial-dir-pathname))
                 nil)))
         (progn
-          (if debug (xlogntf "gc: Cannot search for file with no name/type: ~a" filename))
+          (if debug (xlogntft "gc: Cannot search for file with no name/type: ~a" filename))
           nil))))
 
 (defun get-config1 (filename property &key (debug nil))
