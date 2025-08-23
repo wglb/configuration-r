@@ -7,16 +7,24 @@
 (defun find-file-in-parent0 (pn target &optional (visited-dirs '()))
   "Helper for FIND-FILE-IN-PARENT. Recursively searches for TARGET starting from PN and going up,
    keeping a list of visited directories to prevent infinite loops."
-  (when (or (null pn) (equal pn #P"/") (equal pn #P"") (member pn visited-dirs :test #'uiop:pathname-equal))
+  (break "find-file-in-parent0: pn ~s target ~s visited ~s done? ~s"
+		 pn
+		 target
+		 visited-dirs
+		 (or (null pn) (equal (namestring pn) (namestring #P"/")) (equal (namestring pn) (namestring #P"")) (member pn visited-dirs :test #'uiop:pathname-equal)))
+  (break "pnd ~s pnd of P'/' ~s and pnd of P'' ~s"  (pathname-directory pn) (pathname-directory #P"") (pathname-directory #P"/"))
+  (when (or (null pn) (equal (namestring pn) (namestring #P"/")) (equal (namestring pn) (namestring #P"")) (member pn visited-dirs :test #'uiop:pathname-equal))
     (debugc 5 (xlogntf "ffip0: Circular path detected or end of path reached, stopping recursion."))
+	(break "ffip0: Circular path detected or end of path reached, stopping recursion.")
     (return-from find-file-in-parent0 nil))
   
   (let ((tpn (merge-pathnames target pn)))
     (debugc 5 (xlogntf "ffip0: target ~s pn ~s -> tpn ~s" target pn tpn))
+	(break "ffip0: target ~s pn ~s -> tpn ~s" target pn tpn)
     (if (probe-file tpn)
         tpn
         (let ((npn (pathname-parent-directory-pathname pn)))
-          (debugc 5 (xlogntf "ffip0: no file in ~s, trying parent ~s" pn npn))
+          (break "tpn ~s does not exist, pn is ~s path-parent-dir ~s" tpn pn npn)
           (find-file-in-parent0 npn target (cons pn visited-dirs))))))
 
 (defun find-file-in-parent (pn target)
@@ -24,6 +32,7 @@
    Returns the pathname of the found file or NIL."
   (let* ((initial-pn (ensure-directory-pathname pn))
          (ans (find-file-in-parent0 initial-pn target)))
+	(break "find-file-in-parent: pn ~s target ~s" pn target)
 	(unless ans
 	  (xlogntf "ffip: didn't find in current path, trying home directory fallback.")
 	  ;; Fallback to user's home directory if not found in current path
@@ -53,6 +62,7 @@
                                  (t (getcwd))))
          (fn (pathname-name filename))
          (ty (pathname-type filename)))
+	(break "get-config: filename ~s property ~s dir ~s debug ~s" filename property dir debug)
     (if (and fn ty)
         (let* ((target-file (make-pathname :name fn :type ty))
                (config-file (find-file-in-parent initial-dir-pathname target-file)))
@@ -76,6 +86,7 @@
          (dir-pathname (pathname-directory-pathname file-pathname))
          (fn (pathname-name file-pathname))
          (ty (pathname-type file-pathname)))
+	(break "get-config1 filename ~s property ~s debug ~s" filename property debug)
     (if (and fn ty)
         (let* ((target-file (make-pathname :name fn :type ty))
                (config-file (find-file-in-parent dir-pathname target-file)))
