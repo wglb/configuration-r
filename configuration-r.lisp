@@ -65,25 +65,3 @@
           (if debug (xlogntf "gc1: Cannot search for file with no name/type: ~a" filename))
           nil)))))
 
-
-#+nil (defun get-config1 (filename property &key (debug nil))
-		"This function gets a property from a specific file path."
-		(let* ((file-pathname (uiop:ensure-pathname filename :want-pathname t))
-			   (dir-pathname (uiop:pathname-directory-pathname file-pathname)))
-		  (loop for current-dir = dir-pathname then (uiop:pathname-parent-directory-pathname current-dir)
-				while (and current-dir (not (equal #P"/" current-dir)))
-				do
-				   (let ((config-file (merge-pathnames (file-namestring file-pathname) current-dir)))
-					 (break "gc1 fn ~s prop ~s cf ~s cd ~s" filename property config-file current-dir)
-					 (when (uiop:probe-file* config-file)
-					   (break "got the file ~s" config-file)
-					   (let ((alist (read-config-file config-file :debug debug)))
-						 (break "checking alist ~s" alist)
-						 (when alist
-						   (let ((ans (cdr (assoc property alist))))
-							 (if debug (xlogntf "gc1: prop ans ~s val ~s from file ~s" property ans config-file))
-							 (break "we got ans ~s from config-file ~s " ans config-file)
-							 (return-from get-config1 (values ans config-file)))))))
-				finally
-				   (if debug (xlogntf "gc1: Did not find file ~a searching from ~a" (file-namestring file-pathname) dir-pathname))
-				   (return-from get-config1 nil))))
