@@ -4,7 +4,7 @@
   :description "Describe configuration-r here"
   :author "wgl@ciex-security.com"
   :license  "GPL"
-  :version "0.2.3"
+  :version "1.1.1"
   :serial t
   :depends-on (#:xlog)
   :components ((:file "configuration-r-pkg")

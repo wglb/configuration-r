@@ -1,68 +1,89 @@
 ;;;; configuration-r.lisp
 
-(declaim (optimize (speed 0) (safety 3) (space 0) (debug 3)))
-
 (in-package #:configuration-r)
 
-(defun get-config (filename property &key (dir nil) (debug nil))
-  "This function gets a config property from a specific file named FILENAME.
-   It searches up from the directory DIR (or current directory if DIR is nil).
-   The FILENAME argument must not contain any directory components."
-  (if (pathname-directory filename)
-      (error "Filename argument to GET-CONFIG must not contain directory components: ~a" filename))
-  (handler-case
-      (let* ((initial-dir (if dir
-                              (ensure-directory-pathname dir)
-                              (getcwd)))
-             (canonical-dir (truename initial-dir))
-             (fn (pathname-name filename))
-             (ty (pathname-type filename))
-             (target-file (make-pathname :name fn :type ty)))
-        (loop for pn = canonical-dir then (pathname-parent-directory-pathname pn)
-              while pn
-              do (let ((tpn (merge-pathnames target-file pn)))
-                   (when (probe-file tpn)
-                     (when debug (xlogntf "gc: Found file ~a, reading it." tpn))
-                     (let ((alist (read-config-file tpn :debug debug)))
-                       (when alist
-                         (let ((ans (cdr (assoc property alist))))
-                           (if ans
-                               (progn
-                                 (if debug (xlogntf "gc: Found property ~s, returning." ans))
-                                 (return-from get-config (values ans tpn)))
-                               (when debug (xlogntf "gc: File ~s found, but property ~s not found. Continuing search."
-                                                    tpn property))))))))
-              finally (when debug (xlogntf "gc: No file with property ~s found." property)))
-        nil)
-    (file-error ()
-      (when debug (xlogntf "gc: The directory ~s does not exist, exiting gracefully." dir))
-      nil)))
+(defun read-config-file (file-path &key (debug nil))
+  "Reads a Lisp configuration file at FILE-PATH and returns an alist.
+   Returns NIL if the file does not exist or cannot be read."
+  (if (probe-file file-path)
+      (handler-case
+          (with-open-file (stream file-path :direction :input)
+            (let ((content (read stream)))
+              (if debug (xlogntf "rcf: Read content from file ~s" file-path))
+              content))
+        (error (e)
+          (if debug (xlogntf "rcf: Error reading file ~s: ~a" file-path e))
+          nil))
+      (progn
+        (if debug (xlogntf "rcf: File not found at ~s" file-path))
+        nil)))
+
+
+(defun get-config (filename property &key (dir (uiop:getcwd)) (debug nil))
+  "This function gets a PROPERTY from a configuration file named FILENAME.
+   It signals an error if FILENAME contains a directory path."
+  (let ((fn-pathname (uiop:ensure-pathname filename :want-pathname t)))
+    (if (pathname-directory fn-pathname)
+        (error "The filename argument '~a' should not contain a directory path." filename)))
+  (let* ((dir-pathname (uiop:ensure-directory-pathname dir)))
+    (loop for current-dir = dir-pathname then (uiop:pathname-parent-directory-pathname current-dir)
+          while (and current-dir (not (equal #P"/" current-dir)))
+          do
+             (let ((config-file (merge-pathnames filename current-dir)))
+               (when (uiop:probe-file* config-file)
+                 (let ((alist (read-config-file config-file :debug debug)))
+                   (when alist
+                     (let ((ans (cdr (assoc property alist))))
+                       (if debug (xlogntf "gc: prop ans ~s val ~s from file ~s" property ans config-file))
+                       (return-from get-config (values ans config-file)))))))
+          finally
+             (if debug (xlogntf "gc: Did not find file ~a searching from ~a" filename dir-pathname))
+             (return-from get-config nil))))
 
 (defun get-config1 (filename property &key (debug nil))
   "This function gets a property from a specific file path.
    It searches up from the directory of the given FILENAME."
-  (handler-case
-      (let* ((absolute-file-pathname (truename (ensure-pathname filename :want-pathname t)))
-             (current-dir (pathname-directory-pathname absolute-file-pathname))
-             (target-file (make-pathname :name (pathname-name absolute-file-pathname)
-                                         :type (pathname-type absolute-file-pathname))))
-        (loop for pn = current-dir then (pathname-parent-directory-pathname pn)
-              while pn
-              do (let ((tpn (merge-pathnames target-file pn)))
-                   (when (probe-file tpn)
-                     (when debug (xlogntf "gc1: Found file ~a, reading it." tpn))
-                     (let ((alist (read-config-file tpn :debug debug)))
+  (let* ((file-pathname (uiop:ensure-pathname filename :want-pathname t))
+         (dir-pathname (uiop:pathname-directory-pathname file-pathname))
+         (fn (pathname-name file-pathname))
+         (ty (pathname-type file-pathname)))
+    (if (and fn ty)
+        (loop for current-dir = dir-pathname then (uiop:pathname-parent-directory-pathname current-dir)
+              while (and current-dir (not (equal #P"/" current-dir)))
+              do
+                 (let ((config-file (merge-pathnames (file-namestring file-pathname) current-dir)))
+                   (when (uiop:probe-file* config-file)
+                     (let ((alist (read-config-file config-file :debug debug)))
                        (when alist
                          (let ((ans (cdr (assoc property alist))))
                            (if ans
                                (progn
-                                 (if debug (xlogntf "gc1: Found property ~s, returning." ans))
-                                 (return-from get-config1 (values ans tpn)))
-                               (when debug (xlogntf "gc1: File ~s found, but property ~s not found. Continuing search."
-                                                    tpn property))))))))
-              finally (when debug (xlogntf "gc1: No file with property ~s found." property)))
-        nil)
-    (file-error ()
-      (when debug (xlogntf "gc1: Could not find or access ~s, exiting gracefully." filename))
-      nil)))
+                                 (if debug (xlogntf "gc1: prop ans ~s val ~s from file ~s" property ans config-file))
+                                 (return-from get-config1 (values ans config-file)))
+                               (if debug (xlogntf "gc1: Did not find property ~s in file ~s" property config-file))))))))
+        (progn
+          (if debug (xlogntf "gc1: Cannot search for file with no name/type: ~a" filename))
+          nil)))))
 
+
+#+nil (defun get-config1 (filename property &key (debug nil))
+		"This function gets a property from a specific file path."
+		(let* ((file-pathname (uiop:ensure-pathname filename :want-pathname t))
+			   (dir-pathname (uiop:pathname-directory-pathname file-pathname)))
+		  (loop for current-dir = dir-pathname then (uiop:pathname-parent-directory-pathname current-dir)
+				while (and current-dir (not (equal #P"/" current-dir)))
+				do
+				   (let ((config-file (merge-pathnames (file-namestring file-pathname) current-dir)))
+					 (break "gc1 fn ~s prop ~s cf ~s cd ~s" filename property config-file current-dir)
+					 (when (uiop:probe-file* config-file)
+					   (break "got the file ~s" config-file)
+					   (let ((alist (read-config-file config-file :debug debug)))
+						 (break "checking alist ~s" alist)
+						 (when alist
+						   (let ((ans (cdr (assoc property alist))))
+							 (if debug (xlogntf "gc1: prop ans ~s val ~s from file ~s" property ans config-file))
+							 (break "we got ans ~s from config-file ~s " ans config-file)
+							 (return-from get-config1 (values ans config-file)))))))
+				finally
+				   (if debug (xlogntf "gc1: Did not find file ~a searching from ~a" (file-namestring file-pathname) dir-pathname))
+				   (return-from get-config1 nil))))
