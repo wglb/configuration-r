@@ -1,5 +1,19 @@
 CHANGELOG
 
+### **Version 1.2.1 (2025-08-24)
+Added Symlink Test Suite: Introduced a new test suite specifically for
+find-file-with-property-in-parent to ensure it correctly handles various
+symlink scenarios, including:
+
+Finding files through parent and sibling directory symlinks.
+
+Handling symlinks to a non-existent file.
+
+Gracefully navigating circular symlink chains.
+
+Refined Test Output: Added a third optional argument to each is form in the
+new symlink tests to provide descriptive output messages during test runs.
+
 ### **Version 0.2.3 (2025-08-22)**
 
 * **Fixed a critical recursion bug** in `get-config` and `get-config1` that caused an infinite loop and stack overflow when a non-existent file with a directory but no filename was passed as an argument. The recursion is now correctly prevented by first checking for the existence of the file and its filename and type.

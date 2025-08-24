@@ -29,10 +29,10 @@
   (with-open-file (f *test-file-2* :direction :output :if-exists :supersede :if-does-not-exist :create)
     (format f "((:test-prop-2 . \"value-from-subdir\")
                 (:common-prop . \"common-subdir\"))~%"))
-                
+  
   (with-open-file (f *test-file-3* :direction :output :if-exists :supersede :if-does-not-exist :create)
     (format f "((:test-prop-3 . \"value-from-subsubdir\"))~%"))
-    
+  
   (with-open-file (f *test-file-4* :direction :output :if-exists :supersede :if-does-not-exist :create)
     (format f ""))
 
@@ -47,7 +47,7 @@
     (format f "This is a plain text file."))
 
   (with-open-file (f *test-file-8* :direction :output :if-exists :supersede :if-does-not-exist :create
-                     :element-type '(unsigned-byte 8))
+								   :element-type '(unsigned-byte 8))
     (write-byte 255 f)))
 
 (defun cleanup-test-config-files ()
@@ -138,7 +138,6 @@
   (is-true (null (get-config1 *test-file-8* :some-prop))
            "Test case 21 get-config1: Should return nil for a binary file."))
 
-;;---
 ;; Symlink Tests
 
 (def-suite symlink-tests :in configuration-r-tests)
@@ -171,19 +170,24 @@
   (setup-symlink-test)
   ;; Test 22
   (is (equal "common-value"
-             (get-config "config.lisp" :common-prop :dir *symlink-subdir-dir*)))
+             (get-config "config.lisp" :common-prop :dir *symlink-subdir-dir*))
+      "Test 22")
   ;; Test 23
   (is (equal "common-value"
-             (get-config "config.lisp" :common-prop :dir *parent-link*)))
+             (get-config "config.lisp" :common-prop :dir *parent-link*))
+      "Test 23")
   ;; Test 24
   (is (equal "common-value"
-             (get-config "config.lisp" :common-prop :dir *sibling-link*)))
+             (get-config "config.lisp" :common-prop :dir *sibling-link*))
+      "Test 24")
   ;; Test 25
   (is (equal "common-value"
-             (get-config "config.lisp" :common-prop :dir *home-link*)))
+             (get-config "config.lisp" :common-prop :dir *home-link*))
+      "Test 25")
   ;; Test 26
   (is (equal "common-value"
-             (get-config1 *file-link* :common-prop)))
+             (get-config1 *file-link* :common-prop))
+      "Test 26")
   (cleanup-symlink-test))
 
 (test symlink-to-missing-file
@@ -191,10 +195,11 @@
   (cleanup-symlink-test)
   (setup-symlink-test)
   (sb-posix:symlink "../missing.lisp" (merge-pathnames "link-to-missing"
-                                                      *symlink-subdir-dir*))
+                                                       *symlink-subdir-dir*))
   ;; Test 27
   (is (null (get-config1 (merge-pathnames "link-to-missing" *symlink-subdir-dir*)
-                         :some-prop)))
+                         :some-prop))
+      "Test 27")
   (cleanup-symlink-test))
 
 (test circular-symlinks
@@ -207,5 +212,6 @@
     (sb-posix:symlink (namestring link1) link2)
     ;; Test 28
     (is (equal "common-value"
-               (get-config "config.lisp" :common-prop :dir link1)))
+               (get-config "config.lisp" :common-prop :dir link1))
+        "Test 28")
     (cleanup-symlink-test)))
