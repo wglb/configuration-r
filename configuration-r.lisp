@@ -10,7 +10,7 @@
     (cond
       ((and file-found
             (let ((alist (read-config-file file-found)))
-              (when alist
+              (when (and alist (listp alist))
                 (assoc property alist))))
        file-found)
       ((equal (pathname-directory pn) '(:absolute))
@@ -71,7 +71,7 @@
             (cond
               (config-file
                (let ((alist (read-config-file config-file :debug debug)))
-                 (when alist
+                 (when (and alist (listp alist))
                    (let ((ans (cdr (assoc property alist))))
                      (if debug (xlogntf "gc: prop ans ~s val ~s from file ~s" property ans config-file))
                      (values ans config-file)))))
@@ -98,7 +98,7 @@
          (cond
            (config-file
             (let ((alist (read-config-file config-file :debug debug)))
-              (when alist
+              (when (and alist (listp alist))
                 (let ((ans (cdr (assoc property alist))))
                   (if debug (xlogntf "gc1: prop ans ~s val ~s from file ~s" property ans config-file))
                   (values ans config-file)))))
