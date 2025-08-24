@@ -138,3 +138,74 @@
   (is-true (null (get-config1 *test-file-8* :some-prop))
            "Test case 21 get-config1: Should return nil for a binary file."))
 
+;;---
+;; Symlink Tests
+
+(def-suite symlink-tests :in configuration-r-tests)
+
+(defparameter *symlink-test-dir* (merge-pathnames "symlink-test/" *test-temp-dir*))
+(defparameter *symlink-config-file* (merge-pathnames "config.lisp" *symlink-test-dir*))
+(defparameter *symlink-subdir-dir* (merge-pathnames "subdir/" *symlink-test-dir*))
+(defparameter *symlink-sibling-dir* (merge-pathnames "sibling/" *symlink-test-dir*))
+(defparameter *parent-link* (merge-pathnames "link-to-parent" *symlink-subdir-dir*))
+(defparameter *sibling-link* (merge-pathnames "link-to-sibling" *symlink-subdir-dir*))
+(defparameter *file-link* (merge-pathnames "link-to-file.lisp" *symlink-subdir-dir*))
+(defparameter *home-link* (merge-pathnames "home-link" *symlink-subdir-dir*))
+
+(defun setup-symlink-test ()
+  (uiop:ensure-all-directories-exist (list *symlink-subdir-dir* *symlink-sibling-dir*))
+  (with-open-file (s *symlink-config-file* :direction :output :if-exists :supersede)
+    (format s "((:common-prop . \"common-value\")(:other-prop . 123))"))
+  (sb-posix:symlink "../" *parent-link*)
+  (sb-posix:symlink "../sibling/" *sibling-link*)
+  (sb-posix:symlink "../config.lisp" *file-link*)
+  (sb-posix:symlink (namestring (user-homedir-pathname)) *home-link*))
+
+(defun cleanup-symlink-test ()
+  (when (probe-file *symlink-test-dir*)
+    (uiop:delete-directory-tree *symlink-test-dir* :validate t :if-does-not-exist :ignore)))
+
+(test symlink-tests
+  "Tests to ensure find-file-with-property-in-parent handles symlinks."
+  (cleanup-symlink-test)
+  (setup-symlink-test)
+  ;; Test 22
+  (is (equal "common-value"
+             (get-config "config.lisp" :common-prop :dir *symlink-subdir-dir*)))
+  ;; Test 23
+  (is (equal "common-value"
+             (get-config "config.lisp" :common-prop :dir *parent-link*)))
+  ;; Test 24
+  (is (equal "common-value"
+             (get-config "config.lisp" :common-prop :dir *sibling-link*)))
+  ;; Test 25
+  (is (equal "common-value"
+             (get-config "config.lisp" :common-prop :dir *home-link*)))
+  ;; Test 26
+  (is (equal "common-value"
+             (get-config1 *file-link* :common-prop)))
+  (cleanup-symlink-test))
+
+(test symlink-to-missing-file
+  "Tests a symlink that points to a non-existent file."
+  (cleanup-symlink-test)
+  (setup-symlink-test)
+  (sb-posix:symlink "../missing.lisp" (merge-pathnames "link-to-missing"
+                                                      *symlink-subdir-dir*))
+  ;; Test 27
+  (is (null (get-config1 (merge-pathnames "link-to-missing" *symlink-subdir-dir*)
+                         :some-prop)))
+  (cleanup-symlink-test))
+
+(test circular-symlinks
+  "Tests a circular symlink chain."
+  (cleanup-symlink-test)
+  (setup-symlink-test)
+  (let ((link1 (merge-pathnames "link1" *symlink-test-dir*))
+        (link2 (merge-pathnames "link2" *symlink-test-dir*)))
+    (sb-posix:symlink (namestring link2) link1)
+    (sb-posix:symlink (namestring link1) link2)
+    ;; Test 28
+    (is (equal "common-value"
+               (get-config "config.lisp" :common-prop :dir link1)))
+    (cleanup-symlink-test)))
