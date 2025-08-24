@@ -78,7 +78,7 @@
   ;; Test case 4
   (is-true (null (get-config "config.lsp" :test-prop-1 :dir "/tmp/non-existent-dir/"))
            "Test case 4 get-config: Should return nil and not error when the directory does not exist.")
-  ;; Test case 5
+  ;; Test case 5: Enforce that GET-CONFIG signals an error when FILENAME has a directory component.
   (signals error
     (get-config (uiop:parse-native-namestring "/tmp/config.lsp") :test-prop-1)
     "Test case 5 get-config: GET-CONFIG should signal an error when the filename contains a path.")
@@ -137,3 +137,4 @@
   ;; Test case 21: Test with a binary file.
   (is-true (null (get-config1 *test-file-8* :some-prop))
            "Test case 21 get-config1: Should return nil for a binary file."))
+
