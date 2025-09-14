@@ -59,9 +59,10 @@
     ((pathname-directory filename)
      (error "Filename must not contain a directory component."))
     (t
-     (let* ((initial-dir-pathname (if dir
-                                      (ensure-directory-pathname dir)
-                                      (getcwd)))
+     (let* ((initial-dir-pathname
+			  (merge-pathnames (if dir
+                                   (ensure-directory-pathname dir)
+                                   (getcwd))))
             (fn (pathname-name filename))
             (ty (pathname-type filename)))
        (cond
@@ -87,7 +88,7 @@
 (defun get-config1 (filename property &key (debug nil))
   "This function gets a property from a specific file path.
    It searches up from the directory of the given FILENAME."
-  (let* ((file-pathname (ensure-pathname filename :want-pathname t))
+  (let* ((file-pathname (merge-pathnames (ensure-pathname filename :want-pathname t)))
          (dir-pathname (pathname-directory-pathname file-pathname))
          (fn (pathname-name file-pathname))
          (ty (pathname-type file-pathname)))
