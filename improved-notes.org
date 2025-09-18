@@ -1,0 +1,129 @@
+* Analysis and Suggested Improvements for `configuration-r.lisp` [/]
+** General Observations [/]
+- The code aims to provide a robust way to find configuration files and properties in parent
+  directories, handling macOS volume peculiarities. [cite: 1, 2, 3, 4, 5, 6, 7, 8, 9]
+- It uses `xlogntf` for debugging output, indicating some form of logging utility is
+  available. [cite: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+- There's a mix of explicit `debug` parameters and commented-out debug statements. [cite: 3, 4, 5,
+  6, 7, 8, 9, 10]
+
+** Specific Issues and Improvement Suggestions [/]
+*** `find-file-in-parent0` and `find-file-in-parent` [/]
+- [ ] The `(if (equal npn pn) nil ...)` check in `find-file-in-parent0` is intended to prevent
+  infinite loops when `truename` returns the same directory, but it might be more robust to use
+  `uiop:pathname-equal` for comparing pathnames.
+- [ ] The special handling for "~/. " in `find-file-in-parent` seems like a workaround for a
+  specific environment issue (Emacs volume on macOS). While practical, it might hide underlying
+  problems with pathname resolution or `*default-pathname-defaults*`. Consider adding a comment
+  explaining *why* this is necessary if it's a known Emacs/macOS quirk.
+- [ ] The debug message `(xlogntf "probe says ~a" ans))` and `(xlogntf "Now got ans ~a" ans))` could
+  be more descriptive about *which* `ans` is being reported (initial probe, or after `~/` fallback).
+
+*** `get-config0` [/]
+- [ ] The `TODO -- why do we need the namestring` comments are critical. The need for `(namestring
+  fnx)` or `(namestring dir)` when extracting `pathname-directory` suggests a misunderstanding or a
+  specific environment issue with pathname objects. Pathname objects themselves should typically be
+  sufficient for directory manipulation. This should be investigated and clarified. If
+  `pathname-directory` doesn't return a list of directory components as expected, that's a
+  significant issue.
+- [ ] The `*print-pretty* nil` within `get-config0` is a global dynamic variable. Setting it inside
+  `get-config0` will affect all pretty printing within that scope, which might have unintended side
+  effects if `read` or other operations rely on it. It's generally better to avoid altering global
+  print settings unless absolutely necessary and with clear justification. If it's only to prevent
+  pretty printing of the read configuration data, it might be better handled by how the data is
+  *used* rather than how it's *read*.
+- [ ] The `cond` structure for `pf` could be simplified. The first `cond` clause handles `pf`, and
+  the `t` clause handles `(not pf)`. This is a common pattern for `if`.
+- [ ] Recursive call in `get-config0` [cite: 5, 6, 7]: The current recursion `(get-config0 (butlast
+  dir) fn ty property)` [cite: 5] modifies `dir` (a list of directory components). This seems
+  correct for traversing up the directory tree.
+- [ ] Debugging output in `get-config0`[cite: 4, 5, 6, 7]: The debug messages are quite verbose and
+  helpful. Consider using different debug levels for different verbosity, perhaps tied to the
+  `debug` keyword argument.
+
+*** `get-config` [1/2]
+- [ ] The `TODO why do we need namestring. not needed if interactive; required if executable.`
+  comment reinforces the `namestring` issue found in `get-config0`. This strongly suggests a core
+  problem with pathname handling or environment differences between interactive and executable
+  modes. This needs thorough investigation.
+- [X] Double call to `get-config0`: The function calls `(get-config0 ddir fn ty property :debug
+  debug)` twice. Once before `handler-case` and once inside. The first call's return value is
+  discarded, making it redundant. The `handler-case` block should wrap the *only* call to
+  `get-config0`.
+
+*** `get-config1` [/]
+- [ ] The `TODO -- this is making errors building up the pathname. Most noteable if passed an
+  absolute pathname` comment indicates a significant bug. This function appears to be an attempt to
+  resolve pathnames differently, but it's clearly problematic.
+- [ ] The logic for constructing `dir`  is highly complex and likely incorrect:
+    ```lisp
+    (pathname-directory 
+        (make-pathname 
+            :name 
+            (pathname-name filename)
+            :directory (append 
+                        (pathname-directory (merge-pathnames *default-pathname-defaults* (directory-namestring filename)))
+                        (list `,(directory-namestring filename)))
+            :type (pathname-type filename))))
+    ```
+    This attempts to create a pathname from `filename`, then extract its directory. The `append`
+  with `directory-namestring filename` and `(list ,(directory-namestring filename))` looks very
+  suspicious and redundant. It's trying to combine components and then add the full directory string
+  as another component. This is almost certainly where the absolute pathname issues stem
+  from. `pathname-directory` on a string or a non-normalized pathname can be tricky. 
+- [ ] `get-config1` seems to be a problematic alternative to `get-config`. Given the `TODO` and
+  errors, it should probably be removed or completely rewritten if its functionality is genuinely
+  needed and distinct from `get-config`.
+
+** Code Style and Readability [/]
+- [ ] Consistent indentation: The indentation looks generally consistent, which is good.
+- [ ] Docstrings: Functions have good docstrings[cite: 2, 3, 4, 8, 9, 10], which is excellent for
+  understanding the code's intent.
+- [ ] Variable naming: Variable names like `pn`, `fn`, `ty`, `ddir`, `npn`, `tpn` are concise but
+  generally understandable within context.
+- [ ] Redundant parentheses: A few places have slightly redundant parentheses, e.g., `(debug nil)`
+  [cite: 3] could be just `debug nil`.
+- [ ] Optimization declamation[cite: 1]: `(declaim (optimize (speed 0) (safety 3) (space 0) (debug
+  3)))` is fine for development, but for production code, you might want to adjust these, especially
+  `speed 0` and `debug 3`.
+
+** Architectural/Design Considerations [/]
+- [ ] Error handling: The `handler-case` in `get-config` is a good start, but currently, it just
+  logs the error and the original `get-config0` call's result is returned (which might be nil if the
+  error occurred in the first call). Consider what should happen if `get-config0` raises an
+  error. Should `get-config` return `nil`, re-signal, or provide a default?
+- [ ] Configuration format: The configuration files are read using `read`[cite: 5], implying they
+  are Lisp S-expressions (alist of property-value pairs). This is common in Lisp but might be less
+  flexible if the configuration needs to be edited by non-Lisp users or other tools. If so, consider
+  JSON, YAML, or INI. For a pure Lisp project, it's perfectly acceptable.
+
+** Refactored Snippets (Illustrative, not full rewrite) [/]
+
+*Example of `get-config` improvement:*
+```lisp
+;; Before
+;; (defun get-config (filename property &key  (dir nil) (debug nil))
+;;   ;; ...
+;;   (get-config0 ddir fn ty property :debug debug) ;; Redundant call
+;;   (handler-case
+;;       (get-config0 ddir fn ty property :debug debug)
+;;     (error (e)
+;;       (xlogntf "get-config: error ~e in getting ~a from ~a" e property filename))))
+
+;; After (removing redundant call and cleaning up initial dir setup)
+(defun get-config (filename property &key (dir nil) (debug nil))
+  "get-config answers the property found in the file named 'fn'. [cite: 8]
+   filename must be a pathname from 'make-pathname or 'merge-pathnames.
+   If fn is not in the specified directory, or if the property is not found in that file,
+   get-config will look in the parent, recursively. 
+   Returns values of (result filename)."
+  (let* ((ddir (pathname-directory (or dir *default-pathname-defaults*)))
+         (fn (pathname-name filename))
+         (ty (pathname-type filename)))
+    (when debug
+      (xlogntf "gc: fn ~s prop ~s dir ~s~%    ddir ~s" filename property dir ddir))
+    (handler-case
+        (get-config0 ddir fn ty property :debug debug)
+      (error (e)
+        (xlogntf "get-config: error ~e in getting ~a from ~a" e property filename)
+        nil)))) ;; Return nil or re-signal, depending on desired error behavior.

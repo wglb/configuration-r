@@ -1,0 +1,2 @@
+To check out the local
+git clone -b primary ~/repository/lisplib/public/configuration-r/  con
