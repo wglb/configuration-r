@@ -3,3 +3,4 @@
 push-both.sh
 .emacs.desktop*
 *~
+*.fnd
