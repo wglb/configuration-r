@@ -78,11 +78,11 @@
                      (values ans config-file)))))
               (t
                (if debug
-                   (xlogntf "gc: Did not find file ~a searching from ~a" target-file initial-dir-pathname))
+                   (xlogntft "gc: Did not find file ~a searching from ~a" target-file initial-dir-pathname))
                nil))))
          (t
           (if debug
-              (xlogntf "gc: Cannot search for file with no name/type: ~a" filename))
+              (xlogntft "gc: Cannot search for file with no name/type: ~a" filename))
           nil))))))
 
 (defun get-config1 (filename property &key (debug nil))
@@ -101,13 +101,13 @@
             (let ((alist (read-config-file config-file :debug debug)))
               (when (and alist (listp alist))
                 (let ((ans (cdr (assoc property alist))))
-                  (if debug (xlogntf "gc1: prop ans ~s val ~s from file ~s" property ans config-file))
+                  (if debug (xlogntft "gc1: prop ans ~s val ~s from file ~s" property ans config-file))
                   (values ans config-file)))))
            (t
             (if debug
-                (xlogntf "gc1: Did not find file ~a searching from ~a" target-file dir-pathname))
+                (xlogntft "gc1: Did not find file ~a searching from ~a" target-file dir-pathname))
             nil))))
       (t
        (if debug
-           (xlogntf "gc1: Cannot search for file with no name/type: ~a" filename))
+           (xlogntft "gc1: Cannot search for file with no name/type: ~a" filename))
        nil))))
